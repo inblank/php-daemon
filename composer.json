@@ -1,0 +1,26 @@
+{
+    "name": "inblank/daemon",
+    "license": "proprietary",
+    "description": "Multiprocess daemon",
+    "keywords": [
+    ],
+    "type": "library",
+    "require": {
+        "php": "~7.4",
+        "ext-pcntl": "*",
+        "ext-posix": "*",
+        "monolog/monolog": "~2.2.0"
+    },
+    "require-dev": {
+        "roave/security-advisories": "dev-master"
+    },
+    "autoload": {
+        "psr-4": {
+            "inblank\\daemon\\": "src"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    }
+}
