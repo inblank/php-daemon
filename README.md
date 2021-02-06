@@ -1,22 +1,24 @@
 # Многопоточный демон
 
-Пример запуска:
+## Пример запуска
 
 ```php
 <?php
-include_once '../vendor/autoload.php';
+use inblank\daemon\daemon;
 
-// Инициализируем
-$daemon = new \inblank\daemon\daemon('test');
+include_once './vendor/autoload.php';
 
-// Добавляем обработчик
+// 1. Инициализируем
+$daemon = new daemon('loader');
+
+// 2. Добавляем обработчик
 $daemon->addRunners([
-    'log' => static function ($logger, $isStopped) {
+    'log' => static function ($logger) {
         $logger->info(random_int(1, 100));
         sleep(1);
     }
 ]);
 
-// Запускаем в 2 потока
+// 3. Запускаем в 2 потока
 $daemon->run(2);
 ```

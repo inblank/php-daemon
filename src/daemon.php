@@ -5,6 +5,8 @@ namespace inblank\daemon;
 use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use RuntimeException;
+use Throwable;
 
 /**
  * Класс многопоточного демона
@@ -88,12 +90,15 @@ class daemon
         $this->name = $name;
 
         // проверяем и подготавливаем необходимые файлы
-        $this->pidFile = !empty($pidFile) ? $pidFile : "/var/run/phpdaemon/{$this->name}.pid";
-        $this->logFile = !empty($logFile) ? $logFile : "/var/log/phpdaemon/{$this->name}.log";
+        $this->pidFile = !empty($pidFile) ? $pidFile : "/var/run/phpdaemon/$this->name.pid";
+        $this->logFile = !empty($logFile) ? $logFile : "/var/log/phpdaemon/$this->name.log";
         foreach ([$this->pidFile, $this->logFile] as $file) {
-            $dir = dirname($file);
-            if (!((is_dir($dir) || mkdir($dir, 0777, true)) && is_writable($dir))) {
-                $this->exit(self::EXIT_ERROR, "Directory `{$dir}` not writable");
+            $path = dirname($file);
+            if (!file_exists($path) && !mkdir($path, 0777, true) && !is_dir($path)) {
+                throw new RuntimeException("Directory `$path` was not created");
+            }
+            if (!is_dir($path) || !is_writable($path)) {
+                throw new RuntimeException("Directory `$path` not writable");
             }
         }
 
@@ -143,7 +148,7 @@ class daemon
         }
         if ($pid) {
             // завершаем родительский процесс, чтобы "отвязать" от терминала
-            exit("Daemon main process pid {$pid}" . PHP_EOL);
+            exit("Daemon main process pid $pid" . PHP_EOL);
         }
 
         // делаем основной процесс главным, это необходимо для создания дочерних процессов
@@ -154,7 +159,7 @@ class daemon
         $this->logger->info("Start main process");
 
         // задаем имя основного процесса отображаемое по ps
-        cli_set_process_title("phpdaemon.m.{$this->name}");
+        cli_set_process_title("phpdaemon.m.$this->name");
         // устанавливаем обработчик сигналов
         pcntl_async_signals(true);
         pcntl_signal(SIGTERM, [$this, "signalHandler"]);
@@ -177,7 +182,7 @@ class daemon
                     } else {
                         // дочерний процесс создан
                         // задаем его имя для отображения по ps
-                        cli_set_process_title("phpdaemon.c.{$this->name}");
+                        cli_set_process_title("phpdaemon.c.$this->name");
                         //---------------------------------------------------------------------
                         // Рабочий цикл дочернего процесса
                         while (!$this->isStopped()) {
@@ -185,9 +190,9 @@ class daemon
                             foreach ($this->runners as $runnerName => $runner) {
                                 try {
                                     $runner($this->logger, [$this, "isStopped"]);
-                                } catch (\Throwable $e) {
+                                } catch (Throwable $e) {
                                     $this->logger->error(
-                                        "Runner `{$runnerName}` error",
+                                        "Runner `$runnerName` error",
                                         [
                                             'error' => [
                                                 'file' => $e->getFile(),
@@ -214,7 +219,7 @@ class daemon
                     }
                     unset($this->processes[$signaledPid]);
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->error("{$e->getFile()}:{$e->getLine()} {$e->getMessage()}");
                 // TODO вызов события при ошибке
             }
@@ -275,10 +280,8 @@ class daemon
     public function signalHandler(int $signal): void
     {
         // TODO события прикрепляемые пользователем на сигналы
-        switch ($signal) {
-            case SIGTERM:
-                $this->stop = true;
-                break;
+        if ($signal === SIGTERM) {
+            $this->stop = true;
         }
     }
 
